@@ -651,6 +651,19 @@ class PHPlot
     protected $yscale;
     /** Linear or log scale on Y */
     protected $yscale_type = 'linear';
+    /** Flag: Draw the sum of X data labels */
+    protected $x_data_label_sum = TRUE;
+    /** Flag: Draw the sum of Y data labels */
+    protected $y_data_label_sum = TRUE;
+    /** Horizontal align of X data labels */
+    protected $x_data_label_align = 'right';
+    /** Vertical align of Y data labels */
+    protected $y_data_label_align = 'top';
+    /** Flag: Draw the last of X data labels */
+    protected $x_data_label_last = TRUE;
+    /** Flag: Draw the last of Y data labels */
+    protected $y_data_label_last = TRUE;
+
 
     /**
      * Constructor: Sets up GD palette image resource, and initializes plot style controls
@@ -2833,9 +2846,101 @@ class PHPlot
         return TRUE;
     }
 
-/////////////////////////////////////////////
-///////////                              MISC
-/////////////////////////////////////////////
+    /**
+     * Enables or disables drawing of the sum of X data labels
+     *
+     * @param float $which_xdls  True to draw the sum of X data labesl, false to not draw it
+     * @return bool  True always
+     * @since 6.2.1
+     */
+    function SetXDataLabelSum($which_xdls)
+    {
+        $this->x_data_label_sum = $which_xdls;
+        return TRUE;
+    }
+
+    /**
+     * Enables or disables drawing of the sum of Y data labels
+     *
+     * @param float $which_ydls  True to draw the sum of Y data labesl, false to not draw it
+     * @return bool  True always
+     * @since 6.2.1
+     */
+    function SetYDataLabelSum($which_ydls)
+    {
+        $this->y_data_label_sum = $which_ydls;
+        return TRUE;
+    }
+
+    /**
+     * Horizontal text align the X data labels
+     *
+     * @param string $which_xdlta  Desired horizontal text align of label position: left | center | right
+     * @return bool  True (False on error if an error handler returns True)
+     * @since 6.2.1
+     */
+    function SetXDataLabelTextAlign($which_xdlta)
+    {
+        $which_xdlta = $this->CheckOption(
+            $which_xdlta,
+            'left, center, right',
+            __FUNCTION__
+        );
+        if (!$which_xdlta) return FALSE;
+        $this->x_data_label_align = $which_xdlta;
+
+        return TRUE;
+    }
+
+    /**
+     * Vertical text align the Y data labels
+     *
+     * @param string $which_ydlta  Desired vertical text align of label position: top | middle | bottom
+     * @return bool  True (False on error if an error handler returns True)
+     * @since 6.2.1
+     */
+    function SetYDataLabelTextAlign($which_ydlta)
+    {
+        $which_ydlta = $this->CheckOption(
+            $which_ydlta,
+            'top, middle, bottom',
+            __FUNCTION__
+        );
+        if (!$which_ydlta) return FALSE;
+        $this->y_data_label_align = $which_ydlta;
+
+        return TRUE;
+    }
+
+    /**
+     * Enables or disables drawing of the last of X data labels
+     *
+     * @param float $which_xdll  True to draw the last of X data label, false to not draw it
+     * @return bool  True always
+     * @since 6.2.1
+     */
+    function SetXDataLabelLast($which_xdll)
+    {
+        $this->x_data_label_last = $which_xdll;
+        return TRUE;
+    }
+
+    /**
+     * Enables or disables drawing of the last of Y data labels
+     *
+     * @param float $which_ydll  True to draw the last of Y data label, false to not draw it
+     * @return bool  True always
+     * @since 6.2.1
+     */
+    function SetYDataLabelLast($which_ydll)
+    {
+        $this->y_data_label_last = $which_ydll;
+        return TRUE;
+    }
+
+    /////////////////////////////////////////////
+    ///////////                              MISC
+    /////////////////////////////////////////////
 
     /**
      * Checks the validity of an option (a multiple-choice function parameter)
@@ -8527,16 +8632,31 @@ class PHPlot
                         // Draw optional data label for this bar segment just inside the end.
                         // Text value is the current X, but position is the cumulative X.
                         // The label is only drawn if it fits in the segment width |x2-x1|.
+                        $data_labels_align = $this->x_data_label_align;
                         if ($data_labels_within) {
                             $dvl['min_width'] = abs($x1 - $x2);
                             if ($rightward) {
-                                $dvl['h_align'] = 'right';
-                                $dvl['x_offset'] = -3;
+                                if ($data_labels_align == 'left') {
+                                    $dvl['h_align'] = 'left';
+                                    $dvl['x_offset'] = - (abs($x1 - $x2)) + 3;
+                                } elseif ($data_labels_align == 'center') {
+                                    $dvl['h_align'] = 'right';
+                                    $dvl['x_offset'] = - (abs($x1 - $x2) / 2);
+                                } else {
+                                    $dvl['h_align'] = 'right';
+                                    $dvl['x_offset'] = -3;
+                                }
                             } else {
                                 $dvl['h_align'] = 'left';
                                 $dvl['x_offset'] = 3;
                             }
-                            $this->DrawDataValueLabel('x', $row, $idx, $wx1, $row+0.5, $this_x, $dvl);
+                            if ($this->x_data_label_last) {
+                                $this->DrawDataValueLabel('x', $row, $idx, $wx1, $row + 0.5, $this_x, $dvl);
+                            } else {
+                                if ($record !== $this->num_recs[$row] - 1) {
+                                    $this->DrawDataValueLabel('x', $row, $idx, $wx1, $row + 0.5, $this_x, $dvl);
+                                }
+                            }
                         }
                         // Mark the new end of the bar, conditional on segment width > 0.
                         $wx2 = $wx1;
@@ -8549,6 +8669,7 @@ class PHPlot
             // Value is wx1 (total value), but position is wx2 (end of the bar stack).
             // These differ only with wrong-direction segments, or a stack completely clipped by the axis.
             if ($data_labels_end) {
+                if ($this->x_data_label_sum) {
                 $dvl['min_width'] = NULL; // Might be set above, but the whole array might not exist.
                 if ($rightward) {
                     $dvl['h_align'] = 'left';
@@ -8557,7 +8678,8 @@ class PHPlot
                     $dvl['h_align'] = 'right';
                     $dvl['x_offset'] = -5;
                 }
-                $this->DrawDataValueLabel('x', $row, NULL, $wx2, $row+0.5, $wx1, $dvl);
+                    $this->DrawDataValueLabel('x', $row, NULL, $wx2, $row + 0.5, $wx1, $dvl);
+                }
             }
         }   // end for
         return TRUE;
